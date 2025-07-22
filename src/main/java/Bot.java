@@ -4,9 +4,13 @@ import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageTe
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.Map;
 
 public class Bot extends TelegramLongPollingBot {
 
@@ -31,17 +35,69 @@ public class Bot extends TelegramLongPollingBot {
 
             deleteUserMessage(chatId, userMessage.getMessageId());
 
-            String reply = "Вы написали: " + messageText;
-
-            sendOrEditMessage(chatId, reply);
+            switch (messageText) {
+                case "/start" -> sendStartMessage(chatId);
+                case "FAQ" -> sendOrEditMessage(chatId, getFaqText());
+                case "Select Game" -> sendOrEditMessage(chatId, "🎮 Choose a game from the available options.");
+                default -> sendOrEditMessage(chatId, "You wrote: " + messageText);
+            }
         }
+    }
+
+    private void sendStartMessage(Long chatId) {
+        String text = """
+                👋 Welcome!
+                
+                Use the buttons below to continue.
+                """;
+
+        SendMessage sendMessage = new SendMessage();
+        sendMessage.setChatId(chatId.toString());
+        sendMessage.setText(text);
+        sendMessage.setParseMode("HTML");
+
+        // Inline button
+        InlineKeyboardButton faqButton = new InlineKeyboardButton("📖 FAQ");
+        faqButton.setText("📖 FAQ");
+        faqButton.setCallbackData("FAQ");
+
+        InlineKeyboardMarkup inlineMarkup = new InlineKeyboardMarkup();
+        inlineMarkup.setKeyboard(List.of(List.of(faqButton)));
+
+        // Reply keyboard
+        KeyboardRow row = new KeyboardRow();
+        row.add("Select Game");
+        row.add("FAQ");
+
+        ReplyKeyboardMarkup replyKeyboard = new ReplyKeyboardMarkup();
+        replyKeyboard.setResizeKeyboard(true);
+        replyKeyboard.setKeyboard(List.of(row));
+
+        sendMessage.setReplyMarkup(replyKeyboard);
+
+        try {
+            Message message = execute(sendMessage);
+            lastBotMessages.put(chatId, message.getMessageId());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private String getFaqText() {
+        return """
+                📖 <b>FAQ</b>
+                
+                • This bot is for entertainment and information purposes only.
+                • The user is solely responsible for their actions.
+                • We do not store personal data or guarantee any outcomes.
+                • Usage implies acceptance of all terms.
+                """;
     }
 
     private void sendOrEditMessage(Long chatId, String newText) {
         Integer lastMessageId = lastBotMessages.get(chatId);
 
         if (lastMessageId != null) {
-
             EditMessageText edit = new EditMessageText();
             edit.setChatId(chatId.toString());
             edit.setMessageId(lastMessageId);
@@ -51,7 +107,6 @@ public class Bot extends TelegramLongPollingBot {
             try {
                 execute(edit);
             } catch (Exception e) {
-
                 Message newMessage = sendNewMessage(chatId, newText);
                 if (newMessage != null) {
                     lastBotMessages.put(chatId, newMessage.getMessageId());
@@ -86,8 +141,7 @@ public class Bot extends TelegramLongPollingBot {
 
         try {
             execute(delete);
-        } catch (Exception e) {
-
+        } catch (Exception ignored) {
         }
     }
 }
