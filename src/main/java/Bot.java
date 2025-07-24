@@ -4,6 +4,7 @@ import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageTe
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
@@ -37,10 +38,25 @@ public class Bot extends TelegramLongPollingBot {
 
             switch (messageText) {
                 case "/start" -> sendStartMessage(chatId);
-                case "FAQ" -> sendOrEditMessage(chatId, getFaqText());
-                case "Select Game" -> sendOrEditMessage(chatId, "🎮 Choose a game from the available options.");
-                default -> sendOrEditMessage(chatId, "You wrote: " + messageText);
+                case "FAQ" -> sendFaq(chatId);
+                case "Select Game" -> sendGameSelection(chatId);
+                default -> sendText(chatId, "Unknown command. Please use the buttons.");
             }
+
+        } else if (update.hasCallbackQuery()) {
+            handleCallback(update.getCallbackQuery());
+        }
+    }
+
+    private void handleCallback(CallbackQuery query) {
+        Long chatId = query.getMessage().getChatId();
+        String data = query.getData();
+
+        switch (data) {
+            case "FAQ" -> sendFaq(chatId);
+            case "BACK_TO_MENU" -> sendStartMessage(chatId);
+            case "GAME_1" -> sendText(chatId, "🎲 You selected Game 1.");
+            case "GAME_2" -> sendText(chatId, "🎯 You selected Game 2.");
         }
     }
 
@@ -58,7 +74,6 @@ public class Bot extends TelegramLongPollingBot {
 
         // Inline button
         InlineKeyboardButton faqButton = new InlineKeyboardButton("📖 FAQ");
-        faqButton.setText("📖 FAQ");
         faqButton.setCallbackData("FAQ");
 
         InlineKeyboardMarkup inlineMarkup = new InlineKeyboardMarkup();
@@ -83,54 +98,77 @@ public class Bot extends TelegramLongPollingBot {
         }
     }
 
-    private String getFaqText() {
-        return """
+    private void sendFaq(Long chatId) {
+        String faqText = """
                 📖 <b>FAQ</b>
                 
-                • This bot is for entertainment and information purposes only.
-                • The user is solely responsible for their actions.
-                • We do not store personal data or guarantee any outcomes.
-                • Usage implies acceptance of all terms.
+                • This bot is for entertainment and informational use only.
+                • The user is fully responsible for their activity.
+                • No personal data is stored.
+                • Use implies agreement to all terms.
                 """;
-    }
 
-    private void sendOrEditMessage(Long chatId, String newText) {
-        Integer lastMessageId = lastBotMessages.get(chatId);
+        EditMessageText edit = new EditMessageText();
+        edit.setChatId(chatId.toString());
+        edit.setMessageId(lastBotMessages.getOrDefault(chatId, 0));
+        edit.setText(faqText);
+        edit.setParseMode("HTML");
 
-        if (lastMessageId != null) {
-            EditMessageText edit = new EditMessageText();
-            edit.setChatId(chatId.toString());
-            edit.setMessageId(lastMessageId);
-            edit.setText(newText);
-            edit.setParseMode("HTML");
+        InlineKeyboardButton backButton = new InlineKeyboardButton("⬅️ Back");
+        backButton.setCallbackData("BACK_TO_MENU");
 
-            try {
-                execute(edit);
-            } catch (Exception e) {
-                Message newMessage = sendNewMessage(chatId, newText);
-                if (newMessage != null) {
-                    lastBotMessages.put(chatId, newMessage.getMessageId());
-                }
-            }
-        } else {
-            Message newMessage = sendNewMessage(chatId, newText);
-            if (newMessage != null) {
-                lastBotMessages.put(chatId, newMessage.getMessageId());
-            }
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+        markup.setKeyboard(List.of(List.of(backButton)));
+        edit.setReplyMarkup(markup);
+
+        try {
+            execute(edit);
+        } catch (Exception e) {
+            sendText(chatId, faqText);
         }
     }
 
-    private Message sendNewMessage(Long chatId, String text) {
+    private void sendGameSelection(Long chatId) {
+        String text = "🎮 Choose a game from the options below:";
+
+        SendMessage message = new SendMessage();
+        message.setChatId(chatId.toString());
+        message.setText(text);
+        message.setParseMode("HTML");
+
+        InlineKeyboardButton game1 = new InlineKeyboardButton("Game 1 🎲");
+        game1.setCallbackData("GAME_1");
+
+        InlineKeyboardButton game2 = new InlineKeyboardButton("Game 2 🎯");
+        game2.setCallbackData("GAME_2");
+
+        InlineKeyboardButton back = new InlineKeyboardButton("⬅️ Back");
+        back.setCallbackData("BACK_TO_MENU");
+
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+        markup.setKeyboard(List.of(List.of(game1, game2), List.of(back)));
+
+        message.setReplyMarkup(markup);
+
+        try {
+            Message sent = execute(message);
+            lastBotMessages.put(chatId, sent.getMessageId());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void sendText(Long chatId, String text) {
         SendMessage send = new SendMessage();
         send.setChatId(chatId.toString());
         send.setText(text);
         send.setParseMode("HTML");
 
         try {
-            return execute(send);
+            Message message = execute(send);
+            lastBotMessages.put(chatId, message.getMessageId());
         } catch (Exception e) {
             e.printStackTrace();
-            return null;
         }
     }
 
