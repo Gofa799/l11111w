@@ -62,10 +62,10 @@ public class Bot extends TelegramLongPollingBot {
 
     private void sendStartMessage(Long chatId) {
         String text = """
-            👋 Welcome!
-            
-            Use the buttons below to continue.
-            """;
+        👋 Welcome!
+
+        Use the buttons below to continue.
+        """;
 
         InlineKeyboardButton faqButton = new InlineKeyboardButton("📖 FAQ");
         faqButton.setCallbackData("FAQ");
@@ -82,30 +82,48 @@ public class Bot extends TelegramLongPollingBot {
         replyKeyboard.setKeyboard(List.of(row));
 
         Integer messageId = lastBotMessages.get(chatId);
+
+        // If message already exists -> edit it (with only InlineKeyboard)
         if (messageId != null && messageId != 0) {
             EditMessageText edit = new EditMessageText();
             edit.setChatId(chatId.toString());
             edit.setMessageId(messageId);
             edit.setText(text);
             edit.setParseMode("HTML");
-            edit.setReplyMarkup(inlineMarkup); // Только inline markup в редактировании
+            edit.setReplyMarkup(inlineMarkup);
             try {
                 execute(edit);
             } catch (Exception e) {
-                e.printStackTrace();
+                // fallback in case edit fails
+                sendWithBothKeyboards(chatId, text, replyKeyboard, inlineMarkup);
             }
         } else {
-            SendMessage send = new SendMessage();
-            send.setChatId(chatId.toString());
-            send.setText(text);
-            send.setParseMode("HTML");
-            send.setReplyMarkup(replyKeyboard); // Только reply markup при первом сообщении
-            try {
-                Message message = execute(send);
-                lastBotMessages.put(chatId, message.getMessageId());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            sendWithBothKeyboards(chatId, text, replyKeyboard, inlineMarkup);
+        }
+    }
+
+    private void sendWithBothKeyboards(Long chatId, String text, ReplyKeyboardMarkup replyKeyboard, InlineKeyboardMarkup inlineMarkup) {
+        SendMessage send = new SendMessage();
+        send.setChatId(chatId.toString());
+        send.setText(text);
+        send.setParseMode("HTML");
+        send.setReplyMarkup(replyKeyboard); // only reply markup allowed here
+
+        try {
+            Message message = execute(send);
+            lastBotMessages.put(chatId, message.getMessageId());
+
+            // update inline buttons separately if needed
+            EditMessageText editInline = new EditMessageText();
+            editInline.setChatId(chatId.toString());
+            editInline.setMessageId(message.getMessageId());
+            editInline.setText(text);
+            editInline.setParseMode("HTML");
+            editInline.setReplyMarkup(inlineMarkup);
+            execute(editInline);
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
