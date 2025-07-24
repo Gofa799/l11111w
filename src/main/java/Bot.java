@@ -62,24 +62,17 @@ public class Bot extends TelegramLongPollingBot {
 
     private void sendStartMessage(Long chatId) {
         String text = """
-                👋 Welcome!
-                
-                Use the buttons below to continue.
-                """;
+            👋 Welcome!
+            
+            Use the buttons below to continue.
+            """;
 
-        SendMessage sendMessage = new SendMessage();
-        sendMessage.setChatId(chatId.toString());
-        sendMessage.setText(text);
-        sendMessage.setParseMode("HTML");
-
-        // Inline button
         InlineKeyboardButton faqButton = new InlineKeyboardButton("📖 FAQ");
         faqButton.setCallbackData("FAQ");
 
         InlineKeyboardMarkup inlineMarkup = new InlineKeyboardMarkup();
         inlineMarkup.setKeyboard(List.of(List.of(faqButton)));
 
-        // Reply keyboard
         KeyboardRow row = new KeyboardRow();
         row.add("Select Game");
         row.add("FAQ");
@@ -88,13 +81,31 @@ public class Bot extends TelegramLongPollingBot {
         replyKeyboard.setResizeKeyboard(true);
         replyKeyboard.setKeyboard(List.of(row));
 
-        sendMessage.setReplyMarkup(replyKeyboard);
-
-        try {
-            Message message = execute(sendMessage);
-            lastBotMessages.put(chatId, message.getMessageId());
-        } catch (Exception e) {
-            e.printStackTrace();
+        Integer messageId = lastBotMessages.get(chatId);
+        if (messageId != null && messageId != 0) {
+            EditMessageText edit = new EditMessageText();
+            edit.setChatId(chatId.toString());
+            edit.setMessageId(messageId);
+            edit.setText(text);
+            edit.setParseMode("HTML");
+            edit.setReplyMarkup(inlineMarkup); // Только inline markup в редактировании
+            try {
+                execute(edit);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } else {
+            SendMessage send = new SendMessage();
+            send.setChatId(chatId.toString());
+            send.setText(text);
+            send.setParseMode("HTML");
+            send.setReplyMarkup(replyKeyboard); // Только reply markup при первом сообщении
+            try {
+                Message message = execute(send);
+                lastBotMessages.put(chatId, message.getMessageId());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -131,11 +142,6 @@ public class Bot extends TelegramLongPollingBot {
     private void sendGameSelection(Long chatId) {
         String text = "🎮 Choose a game from the options below:";
 
-        SendMessage message = new SendMessage();
-        message.setChatId(chatId.toString());
-        message.setText(text);
-        message.setParseMode("HTML");
-
         InlineKeyboardButton game1 = new InlineKeyboardButton("Game 1 🎲");
         game1.setCallbackData("GAME_1");
 
@@ -148,27 +154,58 @@ public class Bot extends TelegramLongPollingBot {
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
         markup.setKeyboard(List.of(List.of(game1, game2), List.of(back)));
 
-        message.setReplyMarkup(markup);
-
-        try {
-            Message sent = execute(message);
-            lastBotMessages.put(chatId, sent.getMessageId());
-        } catch (Exception e) {
-            e.printStackTrace();
+        Integer messageId = lastBotMessages.get(chatId);
+        if (messageId != null && messageId != 0) {
+            EditMessageText edit = new EditMessageText();
+            edit.setChatId(chatId.toString());
+            edit.setMessageId(messageId);
+            edit.setText(text);
+            edit.setParseMode("HTML");
+            edit.setReplyMarkup(markup);
+            try {
+                execute(edit);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } else {
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId.toString());
+            message.setText(text);
+            message.setParseMode("HTML");
+            message.setReplyMarkup(markup);
+            try {
+                Message sent = execute(message);
+                lastBotMessages.put(chatId, sent.getMessageId());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
     private void sendText(Long chatId, String text) {
-        SendMessage send = new SendMessage();
-        send.setChatId(chatId.toString());
-        send.setText(text);
-        send.setParseMode("HTML");
-
-        try {
-            Message message = execute(send);
-            lastBotMessages.put(chatId, message.getMessageId());
-        } catch (Exception e) {
-            e.printStackTrace();
+        Integer messageId = lastBotMessages.get(chatId);
+        if (messageId != null && messageId != 0) {
+            EditMessageText edit = new EditMessageText();
+            edit.setChatId(chatId.toString());
+            edit.setMessageId(messageId);
+            edit.setText(text);
+            edit.setParseMode("HTML");
+            try {
+                execute(edit);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } else {
+            SendMessage send = new SendMessage();
+            send.setChatId(chatId.toString());
+            send.setText(text);
+            send.setParseMode("HTML");
+            try {
+                Message message = execute(send);
+                lastBotMessages.put(chatId, message.getMessageId());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
